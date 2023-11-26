@@ -4,26 +4,53 @@ import filetype
 import videoprops
 from PIL import Image
 from PIL.ExifTags import TAGS
+from pillow_heif import register_heif_opener
 
 
-# funcao que cria nomes padronizados para imagens png ou jpg
+# funcao que cria nomes padronizados para arquivos png ou jpg
 def get_new_img_name(image):
     extension = filetype.guess_extension(image)
     image_file = Image.open(image)
+    new_name = "-1"
     exif = {}
-    if image_file._getexif() == None:
+    try:
+        if image_file.getexif() == None:
+            new_name = "-1"
+        else:
+            for tag, value in image_file.getexif().items():
+                # print(f"Log: {tag}: {value}")
+                if tag == 306:
+                    pic_date = value
+                    formatted_pic_date = pic_date.replace(":", "").replace(" ", "")
+                    new_name = f"img_{formatted_pic_date[:8]}_{formatted_pic_date[8:]}.{extension}"
+    except KeyError:
+        print(f"Log: Erro ao tentar acessar propriedades do arquivo {image}")
         new_name = "-1"
-    else:
-        for tag, value in image_file._getexif().items():
-            if tag in TAGS:
-                exif[TAGS[tag]] = value
-        pic_date = exif["DateTimeOriginal"]
-        formatted_pic_date = pic_date.replace(":", "").replace(" ", "")
-        new_name = f"img_{formatted_pic_date[:8]}_{formatted_pic_date[8:]}.{extension}"
     return new_name
 
 
-# funcao que cria nomes padronizados para imagens mp4 ou mov
+# funcao que cria nomes padronizados para arquivos heic
+def get_new_heic_img_name(image):
+    register_heif_opener()
+    image_file = Image.open(image)
+    new_name = "-1"
+    exif = {}
+    try:
+        if image_file.getexif() == None:
+            new_name = "-1"
+        else:
+            for tag, value in image_file.getexif().items():
+                if tag == 306:
+                    pic_date = value
+                    formatted_pic_date = pic_date.replace(":", "").replace(" ", "")
+                    new_name = f"img_{formatted_pic_date[:8]}_{formatted_pic_date[8:]}.{extension}"
+    except KeyError:
+        print(f"Log: Erro ao tentar acessar propriedades do arquivo {image}")
+        new_name = "-1"
+    return new_name
+
+
+# funcao que cria nomes padronizados para arquivos mp4 ou mov
 def get_new_vid_name(video):
     extension = filetype.guess_extension(video)
     properties = videoprops.get_video_properties(video)
@@ -75,12 +102,14 @@ def get_year_month(image):
 
 
 # main
-source_path = "C:\\Users\\vmont\\Pictures\\phone_media_organizer\\source"
-destination_path = "C:\\Users\\vmont\\Pictures\\phone_media_organizer\\destination"
-problem_path = "C:\\Users\\vmont\\Pictures\\phone_media_organizer\\destination\\problem"
+source_path = "D:\\vitormontich\\imagens\\phone_media_organizer\\source"
+destination_path = "D:\\vitormontich\\imagens\\phone_media_organizer\\destination"
+problem_path = "D:\\vitormontich\\imagens\\phone_media_organizer\\destination\\problem"
+enable_detailed_log = 0;
 
 # loop em todos os arquivos do diretorio origem
 for file in os.listdir(source_path):
+    print(f"Log: Processando arquivo {file}")
     new_file_name = ""
     source_file = source_path + "\\" + file
     extension = filetype.guess_extension(source_file)
@@ -88,12 +117,15 @@ for file in os.listdir(source_path):
     if extension == "jpg" or extension == "png":
         # gera nome padronizado para imagem do tipo png ou jpg
         new_file_name = get_new_img_name(source_file)
+    elif extension == "heic":
+        # gera nome padronizado para imagem do heic
+        new_file_name = get_new_heic_img_name(source_file)
     elif extension == "mov" or extension == "mp4":
         # gera nome padronizado para video do tipo mp4 ou mov
         new_file_name = get_new_vid_name(source_file)
     else:
         new_file_name = "-1"
-        print("EXTENSAO AINDA NAO SUPORTADA")
+        print("Log: Extensão não suportada")
     # se o nome gerado for '-1', o sistema ainda não processa arquivos da extensao em questao
     if new_file_name == "-1":
         destination_pic = problem_path + "\\" + file
